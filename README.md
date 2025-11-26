@@ -13,14 +13,15 @@ Recreation of the IBM 5324 keyboard.
 |-----|-----|
 |1u   |68   |
 |1.25u|2    |
-|1.5u |3    |
+|1.5u |2    |
 |1.75u|2    |
-|2u   |6    |
+|2u   |7    |
 |3u   |1    |
-|10u  |1    |
+|9.5u |1    |
+|TOTAL|83   |
 
 Notes:
-- Five 2u horizontal, one 2u vertical
+- Six 2u horizontal, one 2u vertical
 - One 3u vertical
 
 ![Keyboard layout](/Design_Reference/ibm-5324-datamaster.jpg)
