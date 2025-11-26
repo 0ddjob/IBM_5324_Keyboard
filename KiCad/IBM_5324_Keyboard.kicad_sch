@@ -3371,7 +3371,7 @@
 			)
 		)
 	)
-	(global_label "Row_6"
+	(global_label "Row_7"
 		(shape input)
 		(at 220.98 142.24 0)
 		(fields_autoplaced yes)
@@ -3591,7 +3591,7 @@
 			)
 		)
 	)
-	(global_label "Row_6"
+	(global_label "Row_8"
 		(shape input)
 		(at 220.98 154.94 0)
 		(fields_autoplaced yes)
