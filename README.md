@@ -47,5 +47,9 @@ Notes:
 
 ![Keyboard 3D](/IBM_5324_Keyboard_3D.png)
 
+## [N-Key Rollover (NKRO) Design](/KiCad_NKRO)
+Adding diodes to each key switch on their row connection.  The original keyboard doesn't have these so the modified behaviour might not be expected, thus it's "experimental".
+
+![KNRO schematic](/KiCad_NKRO/IBM_5324_Keyboard_NKRO.png)
 
 
