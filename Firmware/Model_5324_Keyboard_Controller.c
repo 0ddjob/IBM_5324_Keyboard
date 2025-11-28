@@ -3,20 +3,47 @@
 // Brett Hallen, Nov 2025
 // Port Macquarie, Australia
 
-// WORK IN PROGRESS
+// WORK IN PROGRESS - WORK IN PROGRESS - WORK IN PROGRESS - WORK IN PROGRESS - WORK IN PROGRESS
+/*
+   IBM System/23 Model 5324 keyboard scan codes
+   +----+----+    +----+----+----+----+----+----+----+----+----+----+----+----+----+----+---------+---------+
+   | 7C | 6F |    | 3E | 31 | 32 | 33 | 34 | 35 | 36 | 37 | 38 | 39 | 3A | 3B | 3C | 3D |    4B   |   4C    |
+   |    | 7F |    |    |    |    |    |    |    |    |    |    |    |    |    |    |1   |         |         |
+   +----+----+    +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
+   | 6C | 6D |    | 20 | 21 | 22 | 23 | 24 | 25 | 26 | 27 | 28 | 29 | 2A | 2B | 2C | 2D | 47 | 48 | 49 | 4E |
+   +----+----+    +----+----+----+----+----+----+----+----+----+----+----+----+----+    +----+----+----+----+
+   | 6E | 7D |    | 54 | 11 | 12 | 13 | 14 | 15 | 16 | 17 | 18 | 19 | 1A | 1B | 59 |    | 44 | 45 | 46 | 4D |
+   |    |    |    | 74 |    |    |    |    |    |    |    |    |    |    |    | 79 |    |    |    |    |    |
+   +----+----+    +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+    |
+   | 71 | 70 |    | OE | 01 | 02 | 03 | 04 | 05 | 06 | 07 | 08 | 09 | 0A |   0B    | 56 | 41 | 42 | 43 |    |
+   |    |    |    |    |    |    |    |    |    |    |    |    |    |    |   7B    | 76 |    |    |    |    |
+   +----+----+    +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+    |
+   | 72 | 73 |    | 7E |                              0F                      | 68 |    40   |   4A    |    |
+   |    |    |    | 5E |                                                      | 78 |         |         |    |
+   |----+----+    +----+----+----+----+----+----+----+----+----+----+----+----+----+---------+---------+----+
+   
+   Typamatic scan codes:
+   0F
+   3D
+   70
+   71
+   72
+   73
+*/
 
 const int NUM_COLS = 11;
 const int NUM_ROWS = 8;
-const int colPins[NUM_COLS] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12};  // Col A-K
-const int rowPins[NUM_ROWS] = {22, 23, 24, 25, 26, 27, 28, 29};       // Row 1-8
-const int bitPins[7] = {30, 31, 32, 33, 34, 35, 36};                  // Scan code bits 0-6 (LSB first)
-const int dataStrobePin = 37;                                         // Pulse low on new code
-const int delayStrobePin = 38;                                        // System ACK (input, optional)
-const int resetPin = 39;                                              // System reset (input)
+const int colPins[NUM_COLS] = {24,23,22,21,20,25,26,27,28,29,30}; // Columns A-K
+const int rowPins[NUM_ROWS] = {36,37,38,39,40,41,42,43};           // Rows 1-8
+const int bitPins[7] = {4,5,6,7,8,9,10};                           // Scan code bits 0-6 (LSB first)
+const int dataStrobePin = 11;                                      // Pulse low on new code
+const int delayStrobePin = 12;                                     // System ACK (input, optional)
+const int resetPin = 13;                                           // System reset (input)
 
 // Scan code lookup table
 // 0x00 marks unused code
-byte scanCode[NUM_ROWS][NUM_COLS] = {
+byte scanCode[NUM_ROWS][NUM_COLS] = 
+{
   // Column  A     B     C     D     E     F     G     H     I     J     K
   // Row 1: CMD     ~`   @2    $4    ^6    *8    )0    +=          *+
            {0x6F, 0x3E, 0x32, 0x34, 0x36, 0x38, 0x3A, 0x3C, 0x00, 0x4B, 0x00},
@@ -42,7 +69,8 @@ unsigned long lastTypamatic[NUM_ROWS][NUM_COLS];
 
 // Typamatic lookup table (marked **, repeat while held)
 // Typamatic key is non-zero
-byte isTypamatic[NUM_ROWS][NUM_COLS] = {
+byte isTypamatic[NUM_ROWS][NUM_COLS] = 
+{
   // Column A     B     C     D     E     F     G     H     I     J     K
           {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // Row 1
           {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 }, // Row 2
@@ -55,7 +83,8 @@ byte isTypamatic[NUM_ROWS][NUM_COLS] = {
 };
 
 // Scan code lookup table for make/break keys (marked *, send on release)
-byte makeBreakScanCode[NUM_ROWS][NUM_COLS] = {
+byte makeBreakScanCode[NUM_ROWS][NUM_COLS] = 
+{
   // Column A     B     C     D     E     F     G     H     I     J     K
           {0x7F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // Row 1
           {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }, // Row 2
@@ -67,16 +96,20 @@ byte makeBreakScanCode[NUM_ROWS][NUM_COLS] = {
           {0x00, 0x5E, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x78, 0x00, 0x00 }  // Row 8
 };
 
-void setup() {
-  Serial.begin(9600);
-  for (int i = 0; i < NUM_COLS; i++) {
+void setup() 
+{
+  Serial.begin(38400);
+  for (int i = 0; i < NUM_COLS; i++) 
+  {
     pinMode(colPins[i], OUTPUT);
     digitalWrite(colPins[i], HIGH);  // Inactive high
   }
-  for (int i = 0; i < NUM_ROWS; i++) {
+  for (int i = 0; i < NUM_ROWS; i++) 
+  {
     pinMode(rowPins[i], INPUT_PULLUP);
   }
-  for (int i = 0; i < 7; i++) {
+  for (int i = 0; i < 7; i++) 
+  {
     pinMode(bitPins[i], OUTPUT);
     digitalWrite(bitPins[i], LOW);  // Idle low
   }
@@ -87,36 +120,48 @@ void setup() {
   // Init states
   memset(prevState, 0, sizeof(prevState));
   // Pulse reset on startup if needed
-  if (digitalRead(resetPin) == LOW) { resetKeyboard(); }
+  if (digitalRead(resetPin) == LOW)
+  	resetKeyboard();
   Serial.println("IBM 5324 Keyboard Emulator Ready");
 }
 
-void loop() {
+void loop() 
+{
   // Check for system reset
-  if (digitalRead(resetPin) == LOW) {
+  if (digitalRead(resetPin) == LOW) 
+  {
     resetKeyboard();
     delay(100);
   }
 
   bool keyActive = false;
-  for (int c = 0; c < NUM_COLS; c++) {
+  for (int c = 0; c < NUM_COLS; c++) 
+  {
     digitalWrite(colPins[c], LOW);  // Drive column low
     delayMicroseconds(10);  // Settle time
 
-    for (int r = 0; r < NUM_ROWS; r++) {
+    for (int r = 0; r < NUM_ROWS; r++) 
+    {
       bool pressed = (digitalRead(rowPins[r]) == LOW);  // Active low
-      if (pressed != prevState[r][c]) {
-        if (pressed) {
+      if (pressed != prevState[r][c]) 
+      {
+        if (pressed) 
+        {
           handleKeyPress(r, c);
-        } else if (isMakeBreak[r][c]) {
+        } 
+        else if (isMakeBreak[r][c]) 
+        {
           handleKeyRelease(r, c);  // Send on release for * keys
         }
         prevState[r][c] = pressed;
         keyActive = true;
-      } else if (pressed && isTypamatic[r][c]) {
+      } 
+      else if (pressed && isTypamatic[r][c]) 
+      {
         // Typamatic repeat
         unsigned long now = millis();
-        if (now - lastTypamatic[r][c] > 100) {  // 100ms repeat rate
+        if (now - lastTypamatic[r][c] > 100) 
+        {  // 100ms repeat rate
           handleKeyPress(r, c);
           lastTypamatic[r][c] = now;
         }
@@ -125,33 +170,40 @@ void loop() {
     digitalWrite(colPins[c], HIGH);  // Release column
   }
 
-  if (!keyActive) {
+  if (!keyActive) 
+  {
     // Idle: clear bits?
     setScanCode(0x00);
   }
   delay(10);  // Scan rate ~100Hz, debounce
 }
 
-void handleKeyPress(int row, int col) {
+void handleKeyPress(int row, int col) 
+{
   byte code = scanCodes[row][col];
-  if (code != 0x00) {
+  if (code != 0x00) 
+  {
     sendScanCode(code);
-    if (isTypamatic[row][col]) lastTypamatic[row][col] = millis();
+    if (isTypamatic[row][col]) 
+    	lastTypamatic[row][col] = millis();
     Serial.print("Key pressed (R"); Serial.print(row+1); Serial.print(" C"); Serial.print(col+1);
     Serial.print("): 0x"); Serial.println(code, HEX);
   }
 }
 
-void handleKeyRelease(int row, int col) {
+void handleKeyRelease(int row, int col) 
+{
   byte code = scanCodes[row][col];
-  if (code != 0x00) {
+  if (code != 0x00) 
+  {
     sendScanCode(code);  // Or invert: sendScanCode(code | 0x80); if system expects break
     Serial.print("Key released (R"); Serial.print(row+1); Serial.print(" C"); Serial.print(col+1);
     Serial.print("): 0x"); Serial.println(code, HEX);
   }
 }
 
-void sendScanCode(byte code) {
+void sendScanCode(byte code) 
+{
   setScanCode(code);
   // Pulse DATA STROBE (system interrupt)
   digitalWrite(dataStrobePin, LOW);
@@ -161,13 +213,16 @@ void sendScanCode(byte code) {
   // while (digitalRead(delayStrobePin) == HIGH) {}  // Block until low
 }
 
-void setScanCode(byte code) {
-  for (int b = 0; b < 7; b++) {
+void setScanCode(byte code) 
+{
+  for (int b = 0; b < 7; b++) 
+  {
     digitalWrite(bitPins[b], (code & (1 << b)) ? HIGH : LOW);
   }
 }
 
-void resetKeyboard() {
+void resetKeyboard() 
+{
   setScanCode(0x00);
   // Clear typamatic timers, etc.
   memset(lastTypamatic, 0, sizeof(lastTypamatic));
