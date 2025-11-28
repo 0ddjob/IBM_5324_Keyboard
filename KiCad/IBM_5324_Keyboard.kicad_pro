@@ -66,18 +66,6 @@
         [
           "lib_footprint_mismatch|476688500|252731400|c54df5a6-d157-456c-84b4-edefe8d7a19a|00000000-0000-0000-0000-000000000000",
           ""
-        ],
-        [
-          "starved_thermal|475492650|176900200|b11b4841-aefc-4f08-adeb-20f1f7031778|0831c71d-3dc3-4729-b8a3-ca207af6ca9f|F.Cu",
-          ""
-        ],
-        [
-          "text_height|382217650|173360200|1d701f1b-9b8c-4496-92f7-7e53896d4897|00000000-0000-0000-0000-000000000000",
-          ""
-        ],
-        [
-          "text_height|383487650|173540200|7fcbe1a4-98f5-49b6-bfdb-14a9694fd90a|00000000-0000-0000-0000-000000000000",
-          ""
         ]
       ],
       "meta": {
@@ -127,7 +115,7 @@
         "skew_out_of_range": "error",
         "solder_mask_bridge": "error",
         "starved_thermal": "error",
-        "text_height": "warning",
+        "text_height": "ignore",
         "text_on_edge_cuts": "error",
         "text_thickness": "warning",
         "through_hole_pad_without_hole": "error",
@@ -261,7 +249,24 @@
     "equivalence_files": []
   },
   "erc": {
-    "erc_exclusions": [],
+    "erc_exclusions": [
+      [
+        "lib_symbol_mismatch|1460500|711200|da84b0ce-ac59-4aa9-9944-aa9c7925f986|00000000-0000-0000-0000-000000000000|||",
+        ""
+      ],
+      [
+        "lib_symbol_mismatch|2133600|584200|85173621-3388-46cd-ab5d-89da2d004ebf|00000000-0000-0000-0000-000000000000|||",
+        ""
+      ],
+      [
+        "power_pin_not_driven|3238500|457200|4f186a19-1c63-49ea-956d-e2244efbcf78|00000000-0000-0000-0000-000000000000|/693952f1-30b5-49b2-9ce4-20453e633e98|/693952f1-30b5-49b2-9ce4-20453e633e98|",
+        ""
+      ],
+      [
+        "power_pin_not_driven|3619500|2133600|784c254c-74d2-4ba9-b7df-6ac9faca5623|00000000-0000-0000-0000-000000000000|/693952f1-30b5-49b2-9ce4-20453e633e98|/693952f1-30b5-49b2-9ce4-20453e633e98|",
+        ""
+      ]
+    ],
     "meta": {
       "version": 0
     },
@@ -465,7 +470,7 @@
       "no_connect_dangling": "warning",
       "pin_not_connected": "error",
       "pin_not_driven": "error",
-      "pin_to_pin": "warning",
+      "pin_to_pin": "ignore",
       "power_pin_not_driven": "error",
       "same_local_global_label": "warning",
       "similar_label_and_power": "warning",
