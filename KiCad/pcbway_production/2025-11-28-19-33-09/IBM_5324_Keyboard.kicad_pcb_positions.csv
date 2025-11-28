@@ -1,9 +1,10 @@
 ﻿pos_x,pos_y,rotation,side,designator,mpn,pack,footprint,value,mount_type
 415.80265,-180.7102,-90.0,top,C1,,,CP_Radial_D5.0mm_P2.50mm,10µF,tht
-402.28765,-160.641875,0.0,top,D1,,,LED_D5.0mm,+5V,tht
+402.28765,-160.641875,0.0,top,D1,,,LED_D5.0mm,+5V Power,tht
 475.49265,-169.5702,180.0,top,J1,,,L717SDB25P1ACH3R,To 5324,tht
 475.49265,-176.9002,-90.0,top,J2,,,PinHeader_2x14_P2.54mm_Vertical,To DB25,tht
 416.25765,-160.641875,180.0,top,R1,,,R_Axial_DIN0207_L6.3mm_D2.5mm_P7.62mm_Horizontal,R,tht
+403.80765,-184.7902,180.0,top,RN1,,,R_Array_SIP9,4.7KΩ,tht
 101.29765,-195.5802,0.0,top,SW1,,,SW_Cherry_MX_PCB,CMD,tht
 82.24765,-195.5802,0.0,top,SW10,,,SW_Cherry_MX_PCB,ERASE,tht
 158.44765,-195.5802,0.0,top,SW11,,,SW_Cherry_MX_PCB,| 1,tht
