@@ -25,11 +25,15 @@ Refer p3-19 of the [SY34-0241-1 service manual.](/Datasheets/SY34-0241-1_IBM_532
 
 The original keyboard uses a capacitive matrix where there is a capacitor for each key. When a key is pressed the capacitance increases.<br>
 
+In my design we use standard key switches.<br>
+
 The keyboard MCU has 11 drive lines to repeatedly scan the matrix - in my schematic these are the columns.<br>  
 
 The increased capacitance of the active key's capacitor permits the drive-line (column) scan pulse to appear at one of the eight input lines to the sense amplifier - in my schematic these are the rows.<br>
 
 The MCU uses the combination of the active drive line (column) and sense amplifier input line (row) to determine a scan code character (88 possible, 83 actually used).<br>
+
+In my design the columns and rows are pulled high.  To scan the keyboard matrix we take each column low in turn.  A key press is detected when the key switch shorts the row to the column, taking the row low which is detected by the controller.  The combination of column and row is translated to a 5324 scan code and put on the bus via a buffer to ensure the 5324 accurately reads the code.<br>
 
 An interrupt request is sent to the Model 5324 processing unit which will then read the scan code character.<br>
 
