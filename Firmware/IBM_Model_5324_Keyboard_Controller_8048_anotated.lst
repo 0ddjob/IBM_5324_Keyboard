@@ -1,0 +1,563 @@
+; IBM System/23 Keyboard Controller ROM disassembly
+
+; Reset Vector
+0000: orl  bus,#$FF     ; Initialize bus to all 1s (likely to tristate or set idle state)
+0002: dis  i            ; Disable external interrupt input
+
+; External Interrupt Vector (unused since interrupts disabled)
+0003: mov  r0,#$1F      ; Set R0 to 0x1F (top of general-purpose RAM area)
+0005: jmp  $0100        ; Jump to self-test routine (RAM and ROM checksum)
+
+; Timer/Counter Interrupt Vector
+0007: call $02C6        ; Call timer interrupt handler (at 0x02C6), then continues into main loop code
+
+; Start of main keyboard scanning loop (entered after self-test or via interrupt return)
+0009: clr  a            ; Clear accumulator (A = 0)
+000A: mov  r2,a         ; Initialize R2 = 0 (key index or counter)
+000B: mov  psw,a        ; Select register bank 0 (PSW = 0)
+000C: inc  r2           ; Increment R2 to 1 (setup for short delay or dummy loop)
+000D: djnz r2,$0026     ; Decrement R2 (1 -> 0), jump if not zero (but it's zero, so no jump; effectively a no-op here)
+
+; Initialize scanning parameters
+000F: mov  r2,#$58      ; Set R2 to 0x58 (88 decimal; likely total keys or scan count, decremented in loop)
+0011: mov  r1,#$58      ; Set R1 to 0x58 (index into keymap table, synchronized with R2)
+0013: mov  r4,#$80      ; Set R4 to 0x80 (bit mask for column scanning, starting with MSB)
+0015: mov  r0,#$18      ; Set R0 to 0x18 (pointer to RAM key state bitmap, 8 bytes for 64 keys?)
+0017: en   tcnti        ; Enable timer/counter interrupt
+0018: strt t            ; Start timer/counter
+
+; Short delay loop using timer (perhaps for debounce or timing)
+0019: mov  a,t          ; Load current timer value into A
+001A: add  a,#$69       ; Add 0x69 (105 decimal) to timer value
+001C: jnc  $0019        ; Jump back if no carry (loop until timer advances enough)
+
+; Reset timer and flags
+001E: clr  a            ; Clear A
+001F: mov  t,a          ; Reset timer to 0
+0020: clr  f0           ; Clear flag F0 (perhaps press/release flag)
+0021: clr  f1           ; Clear flag F1 (perhaps shift or special state)
+0022: jni  $0026        ; Jump if no interrupt pending (/INT high); skip next instruction
+0024: mov  r1,#$B0      ; If interrupt, set R1 to 0xB0 (alternative table index?)
+
+; Check R2 for special conditions (bits 0-2)
+0026: mov  a,r2         ; Load R2 into A
+0027: jb0  $003F        ; If bit 0 set, jump to decrement section
+0029: jb1  $003F        ; If bit 1 set, jump
+002B: jb2  $003F        ; If bit 2 set, jump
+
+; Update for new row/group
+002D: mov  r6,#$88      ; Set R6 to 0x88 (port value for row select?)
+002F: mov  a,r0         ; Load R0 (RAM pointer)
+0030: add  a,#$8        ; Advance R0 by 8 (next byte in key state map)
+0032: mov  r0,a         ; Update R0
+0033: mov  a,r4         ; Load bit mask
+0034: rr   a            ; Rotate right (shift to next column bit)
+0035: mov  r4,a         ; Update R4
+0036: mov  a,r2         ; Load R2
+0037: xrl  a,#$40       ; XOR with 0x40 (64 decimal; check for midpoint?)
+0039: jnz  $003F        ; If not zero, skip reset
+003B: mov  r0,#$18      ; Reset R0 to start of key map
+003D: mov  r4,#$80      ; Reset bit mask to MSB
+
+; Decrement counters
+003F: dec  r0           ; Decrement R0 (move to previous key bit?)
+0040: dec  r2           ; Decrement R2 (next key to scan)
+0041: dec  r6           ; Decrement R6 (port adjust?)
+0042: dec  r1           ; Decrement R1 (next table entry)
+
+; Call subroutine to drive matrix lines
+0043: call $02B0        ; Drive keyboard matrix (select row/column)
+
+; Key press detection branch
+0045: jnt1 $005C        ; If T1 pin = 0 (no press?), jump to release check
+0047: mov  a,@r0        ; Load key state byte from RAM
+0048: anl  a,r4         ; AND with bit mask (check if this key bit set)
+0049: jz   $000C        ; If zero (not previously pressed), back to main loop
+004B: call $02BD        ; Call drive subroutine variant (perhaps re-drive for confirm)
+004D: jnt1 $000C        ; If T1 = 0 now, back to loop (debounce fail?)
+004F: jt0  $000C        ; If T0 = 1, back to loop (additional input check?)
+0051: mov  a,@r0        ; Load key state
+0052: xrl  a,r4         ; XOR with mask (toggle the bit, marking change)
+0053: mov  @r0,a        ; Store updated state
+0054: call $02D7        ; Get high nibble from table (key type?)
+0056: dec  a            ; Decrement result
+0057: jnz  $000C        ; If not zero, back to loop
+0059: cpl  f0           ; Toggle F0 (press/release state)
+005A: jmp  $02DD        ; Jump to output keycode
+
+; Key release detection branch
+005C: mov  a,@r0        ; Load key state
+005D: anl  a,r4         ; Check bit
+005E: jnz  $007F        ; If set (previously pressed), jump to hold check
+0060: call $02B0        ; Re-drive matrix
+0062: jt1  $000C        ; If T1 = 1, back (debounce)
+0064: jt0  $000C        ; If T0 = 1, back
+0066: mov  a,@r0        ; Load state
+0067: xrl  a,r4         ; Toggle bit (mark release)
+0068: mov  @r0,a        ; Store
+0069: call $02D7        ; Get key type
+006B: dec  a            ; Decrement
+006C: jnz  $0075        ; If not zero, check next
+006E: mov  a,r2         ; Load R2
+006F: xrl  a,#$57       ; Check if special key 0x57
+0071: jz   $007B        ; If yes, set R3
+0073: jmp  $007D        ; Else skip
+0075: dec  a            ; Further decrement
+0076: jz   $007D        ; If zero, skip
+0078: dec  a            ; Again
+0079: jnz  $000C        ; If not zero, back
+007B: mov  r3,#$2B      ; Set R3 to 0x2B (debounce counter or special mode?)
+007D: jmp  $02DD        ; Output keycode
+
+; Key hold/repeat branch
+007F: call $02D7        ; Get key type
+0081: xrl  a,#$3        ; Check if type == 3
+0083: jnz  $008E        ; If not, skip
+0085: jf1  $0093        ; If F1 set, jump to set R3
+0087: cpl  f1           ; Toggle F1
+0088: djnz r3,$000C     ; Decrement R3, back if not zero (repeat delay?)
+008A: mov  r3,#$7       ; Reset R3 to 7 (repeat rate?)
+008C: jmp  $02DD        ; Output
+008E: mov  a,r2         ; Load R2
+008F: xrl  a,#$57       ; Check special key
+0091: jnz  $000C        ; If not, back
+0093: mov  r3,#$2B      ; Set R3
+0095: jmp  $000C        ; Back to loop
+
+; Subroutine: Accumulate checksum (used in self-test)
+0097: mov  a,r0         ; Load offset
+0098: movp a,@a         ; Fetch byte from current ROM page
+0099: add  a,r1         ; Add to checksum in R1
+009A: mov  r1,a         ; Update R1
+009B: djnz r0,$0097     ; Loop 256 times (full page)
+009D: jmp  $02CF        ; Jump to next checksum section
+
+; Unused space (NOPs)
+009F: nop               ; Filler or unused
+00A0: nop
+; ... (continues to 00FF with nops)
+
+; Self-test: RAM pattern test and ROM checksum
+0100: clr  a            ; Clear A
+0101: mov  a,r0         ; A = R0 (starts at 0x1F)
+0102: mov  @r0,a        ; Store value at RAM location (init with address value)
+0103: djnz r0,$0101     ; Decrement R0, loop from 0x1F to 0x00
+
+0105: mov  r0,#$1F      ; Reset R0 to 0x1F
+0107: mov  a,r0         ; A = R0
+0108: xrl  a,@r0        ; XOR with stored value (should be 0 if matches)
+0109: jnz  $013F        ; If mismatch, error
+010B: mov  a,#$55       ; Test pattern 0x55
+010D: mov  @r0,a        ; Write
+010E: xrl  a,@r0        ; Check readback
+010F: jnz  $013F        ; Error
+0111: mov  a,#$AA       ; Test pattern 0xAA
+0113: mov  @r0,a
+0114: xrl  a,@r0
+0115: jnz  $013F
+0117: mov  @r0,a        ; Rewrite 0xAA (redundant check)
+0118: xrl  a,@r0
+0119: jnz  $013F
+011B: djnz r0,$0107     ; Next location
+
+011D: jmp  $0097        ; Jump to ROM checksum accumulation (page 0)
+
+; Checksum accumulation for other pages (similar to 0097)
+011F: mov  a,r0
+0120: movp a,@a
+0121: add  a,r1
+0122: mov  r1,a
+0123: djnz r0,$011F     ; Page 1 checksum
+
+0125: mov  r0,#$B0      ; Set for page 3 (0xB0 = 176, but loops 176 times?)
+0127: mov  a,r0
+0128: movp3 a,@a        ; Fetch from page 3
+0129: add  a,r1
+012A: mov  r1,a
+012B: djnz r0,$0127     ; Accumulate
+
+012D: jnz  $013F        ; If checksum != 0, error
+
+; Self-test pass: Output pattern (perhaps to indicate success)
+012F: mov  a,#$55       ; Pattern 0x55
+0131: clr  f0           ; Clear F0
+0132: jt0  $0132        ; Loop if T0 = 1 (wait for input?)
+0134: outl bus,a        ; Output to bus
+0135: anl  p2,#$7F      ; Clear P2 bit 7
+0137: orl  p2,#$80      ; Set P2 bit 7 (enable output?)
+0139: cpl  f0           ; Toggle F0 to 1
+013A: cpl  a            ; A = 0xAA
+013B: jf0  $0132        ; If F0 = 0, loop (but it's 1, so continue)
+013D: jmp  $000C        ; Enter main loop
+
+; Error handler: Output error code and loop (blinking or signal)
+013F: mov  a,#$2A       ; Error pattern 0x2A
+0141: clr  f0           ; Clear F0
+0142: jmp  $0132        ; Jump into output loop (will toggle between 0x2A and 0xD5)
+
+; Unused space (NOPs)
+0144: nop               ; Filler
+; ... (continues to 01FF with nops)
+
+; Data table (keymap or scan codes)
+0200: 23  
+0201: 02  
+0202: 04  
+0203: 24  
+0204: 24  
+0205: 00  
+0206: 00  
+0207: 22  
+0208: 02  
+0209: 0A  
+020A: 14  
+020B: 04  
+020C: 85  
+020D: 02  
+020E: 0D  
+020F: 24  
+0210: 02  
+0211: 0F  
+0212: 14  
+0213: 54  
+0214: 64  
+0215: 32  
+0216: 00  
+0217: 00  
+0218: 22  
+0219: 85  
+021A: 25  
+021B: 25  
+021C: 25  
+021D: 24  
+021E: 25  
+021F: 25  
+0220: 25  
+0221: 25  
+0222: 25  
+0223: 25  
+0224: 25  
+0225: 25  
+0226: 25  
+0227: 25  
+0228: 33  
+0229: 02  
+022A: 00  
+022B: 22  
+022C: 00  
+022D: 00  
+022E: 00  
+022F: 02  
+0230: 22  
+0231: 85  
+0232: 25  
+0233: 25  
+0234: 25  
+0235: 25  
+0236: 25  
+0237: 25  
+0238: 22  
+0239: 85  
+023A: 25  
+023B: 25  
+023C: 25  
+023D: 25  
+023E: 25  
+023F: 25  
+0240: 22  
+0241: 02  
+0242: 41  
+0243: 85  
+0244: 25  
+0245: 25  
+0246: 25  
+0247: 25  
+0248: 46  
+0249: 34  
+024A: 33  
+024B: 46  
+024C: 13  
+024D: 22  
+024E: 02  
+024F: 4F  
+0250: 32  
+0251: 56  
+0252: 21  
+0253: 22  
+0254: 23  
+0255: 23  
+0256: B7  
+0257: 27  
+0258: 00  
+0259: 00  
+025A: 00  
+025B: 00  
+025C: 00  
+025D: 00  
+025E: 00  
+025F: FF  
+0260: 00  
+0261: 00  
+0262: 00  
+0263: 00  
+0264: 00  
+0265: 00  
+0266: 00  
+0267: 00  
+0268: 01  
+0269: 01  
+026A: 01  
+026B: 01  
+026C: 00  
+026D: 00  
+026E: FF  
+026F: FF  
+0270: 00  
+0271: 00  
+0272: 00  
+0273: 00  
+0274: 00  
+0275: 00  
+0276: 00  
+0277: 00  
+0278: 00  
+0279: 00  
+027A: 00  
+027B: 00  
+027C: 00  
+027D: 00  
+027E: 00  
+027F: 00  
+0280: FF  
+0281: 00  
+0282: FF  
+0283: 00  
+0284: 00  
+0285: FF  
+0286: FF  
+0287: 00  
+0288: 00  
+0289: 00  
+028A: 00  
+028B: 00  
+028C: 00  
+028D: 00  
+028E: 00  
+028F: 00  
+0290: 00  
+0291: 00  
+0292: 00  
+0293: 00  
+0294: 00  
+0295: 00  
+0296: 00  
+0297: 00  
+0298: 00  
+0299: 00  
+029A: 00  
+029B: 00  
+029C: 00  
+029D: 00  
+029E: 00  
+029F: 00  
+02A0: 01  
+02A1: FF  
+02A2: FF  
+02A3: 01  
+02A4: 01  
+02A5: 00  
+02A6: 00  
+02A7: 00  
+02A8: FF  
+02A9: FF  
+02AA: 00  
+02AB: 00  
+02AC: 00  
+02AD: 00  
+02AE: 00  
+02AF: 01  
+
+; Subroutine: Drive keyboard matrix (part 1: setup ports)
+02B0: anl  bus,#$7F     ; Clear bus bit 7
+02B2: mov  a,r6         ; Load R6 (row select?)
+02B3: outl p2,a         ; Output to P2
+02B4: orl  p2,#$8       ; Set P2 bit 3
+02B6: mov  a,r1         ; Load table index
+02B7: movp a,@a         ; Fetch byte from table (page 2, key config?)
+02B8: anl  a,#$F        ; Mask low nibble
+02BA: orl  a,#$88       ; OR with 0x88 (base port value)
+02BC: outl p2,a         ; Output to P2
+
+; Subroutine entry point (part 2: drive lines based on R2 bit 6)
+02BD: mov  a,r2         ; Load R2
+02BE: jb6  $02C7        ; If bit 6 set, jump to P2 path
+02C0: mov  a,r4         ; Load bit mask
+02C1: outl p1,a         ; Output to P1 (column drive?)
+02C2: orl  bus,#$80     ; Set bus bit 7 (strobe?)
+02C4: anl  p1,#$0       ; Clear P1
+02C6: retr              ; Return (with flags)
+
+; Alternative drive path (using P2)
+02C7: in   a,p2         ; Input from P2
+02C8: orl  a,r4         ; OR with mask
+02C9: outl p2,a         ; Output back
+02CA: orl  bus,#$80     ; Set bus bit 7
+02CC: anl  p2,#$8F      ; Clear P2 bits 4-7? (mask 0x8F keeps low 4 + bit 3)
+02CE: retr              ; Return
+
+; Checksum accumulation (similar to 0097, for page 2)
+02CF: mov  a,r0
+02D0: movp a,@a
+02D1: add  a,r1
+02D2: mov  r1,a
+02D3: djnz r0,$02CF
+02D5: jmp  $011F        ; To next page
+
+; Subroutine: Get key type (high nibble from table)
+02D7: mov  a,r1         ; Load index
+02D8: movp a,@a         ; Fetch table byte
+02D9: swap a            ; Swap nibbles
+02DA: anl  a,#$F        ; Mask high nibble (now low)
+02DC: retr              ; Return value in A
+
+; Subroutine: Output keycode to host
+02DD: mov  a,r2         ; Load key index
+02DE: movp3 a,@a        ; Fetch from page 3 table (scan code)
+02DF: cpl  a            ; Complement (invert bits)
+02E0: cpl  f0           ; Toggle F0 (for make/break?)
+02E1: jf0  $02EF        ; If F0=0, skip mods
+02E3: jb4  $02ED        ; If bit 4 set, no mod
+02E5: jb5  $02ED        ; If bit 5 set, no mod
+02E7: jb6  $02ED        ; If bit 6 set, no mod
+02E9: orl  a,#$20       ; OR 0x20 (break code modifier?)
+02EB: jmp  $02EF        ; Skip clear
+02ED: anl  a,#$F        ; Clear high nibble (special handling)
+
+02EF: jt0  $02F7        ; If T0=1, skip output
+02F1: outl bus,a        ; Output code to bus
+02F2: anl  p2,#$7F      ; Clear P2 bit 7
+02F4: orl  p2,#$80      ; Set P2 bit 7 (strobe/enable)
+02F6: clr  f0           ; Clear F0
+02F7: jmp  $000C        ; Back to main loop
+
+; Unused space (NOPs)
+02F9: nop
+; ... (to 02FF)
+
+; Scan code table
+0300: A8  
+0301: AB  
+0302: 46  
+0303: AC  
+0304: A9  
+0305: AA  
+0306: B8  
+0307: A0  
+0308: 53  
+0309: A1  
+030A: 04  
+030B: 02  
+030C: 47  
+030D: A8  
+030E: A3  
+030F: 0B  
+0310: 12  
+0311: 59  
+0312: 94  
+0313: 95  
+0314: 0D  
+0315: 00  
+0316: 98  
+0317: 99  
+0318: 9A  
+0319: 93  
+031A: 3B  
+031B: 3C  
+031C: 3D  
+031D: 3E  
+031E: 3F  
+031F: 40  
+0320: 41  
+0321: 42  
+0322: 43  
+0323: 44  
+0324: 45  
+0325: 46  
+0326: 47  
+0327: 48  
+0328: 49  
+0329: 4A  
+032A: 4B  
+032B: 4C  
+032C: 4D  
+032D: 4E  
+032E: 4F  
+032F: 50  
+0330: 51  
+0331: 52  
+0332: 53  
+0333: 54  
+0334: 55  
+0335: 56  
+0336: 57  
+0337: 58  
+0338: 59  
+0339: 5A  
+033A: 5B  
+033B: 5C  
+033C: 5D  
+033D: 5E  
+033E: 5F  
+033F: 60  
+0340: 61  
+0341: 62  
+0342: 63  
+0343: 64  
+0344: 65  
+0345: 66  
+0346: 67  
+0347: 68  
+0348: 69  
+0349: 6A  
+034A: 6B  
+034B: 6C  
+034C: 6D  
+034D: 6E  
+034E: 6F  
+034F: 70  
+0350: 71  
+0351: 72  
+0352: 73  
+0353: 74  
+0354: 75  
+0355: 76  
+0356: 77  
+0357: 07  
+0358: 00  
+0359: 00  
+035A: 00  
+035B: 00  
+035C: 00  
+035D: 00  
+035E: 00  
+035F: 00  
+; From 0x0360 to 0x03EF: all 00 (unused)  
+; Break code = make code | 0x20.
+
+; Possible code or data at end (select banks, returns; perhaps error handlers or stubs)
+03F0: xch  a,r7         ; Exchange A and R7
+03F1: sel  rb0          ; Select register bank 0
+03F2: sel  mb0          ; Select memory bank 0
+03F3: ret               ; Return
+03F4: xch  a,r7
+03F5: nop
+03F6: sel  mb0
+03F7: ret
+03F8: xch  a,r7
+03F9: sel  rb0
+03FA: sel  mb1          ; Select memory bank 1
+03FB: ret
+03FC: xch  a,r7
+03FD: nop
+03FE: sel  mb1
+03FF: ret
